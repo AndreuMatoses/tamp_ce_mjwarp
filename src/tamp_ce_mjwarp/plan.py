@@ -38,8 +38,10 @@ class Rollout:
     `record_probe` keeps per-step (base_xy, ee_xy, obj_xy) tracks for population plots;
     `record_qpos` keeps world 0's full qpos trajectory (for replay/rendering)."""
 
+    EXIT_CHECK = 128  # steps between all-done readbacks (each costs one small sync)
+
     def __init__(self, sim, ik, scenario, n, record_probe=False, record_qpos=False,
-                 nconmax=None, njmax=256):
+                 nconmax=None, njmax=256, early_exit=True):
         assert ik.n == n, f"IK batch size {ik.n} != rollout batch size {n}"
         self.sim, self.ik, self.scenario, self.n = sim, ik, scenario, n
         self.steps = [_sec2steps(s.timeout) for s in scenario.specs]
@@ -60,6 +62,8 @@ class Rollout:
             self._res = 1.0
 
         self.record_probe, self.record_qpos = record_probe, record_qpos
+        self.early_exit = early_exit
+        self.steps_run = sum(self.steps)  # actual steps of the last run (early exit)
         T = sum(self.steps)
         self.probe = wp.zeros((T, n, 6), dtype=wp.float32) if record_probe else None
         self.traj = wp.zeros((T, n, sim.mj_model.nq), dtype=wp.float32) if record_qpos else None
@@ -167,19 +171,37 @@ class Rollout:
         st.t.zero_()
         mjw.forward(self.sim.model, self.d)  # refresh site_xpos etc. for the first ctrl read
 
+    def _run_action(self, spec, steps):
+        """Step one action to its timeout, ending EXIT_TAIL[kind] after every world has
+        latched success (early exit; failed worlds keep the full horizon). Returns the
+        number of steps executed."""
+        g, st = self.graphs[spec.kind], self.state
+        tail = _sec2steps(A.EXIT_TAIL[spec.kind])
+        exit_at = None
+        t = 0
+        while t < steps:
+            wp.capture_launch(g)
+            t += 1
+            if exit_at is not None:
+                if t >= exit_at:
+                    break
+            elif self.early_exit and t % self.EXIT_CHECK == 0 and t + tail < steps:
+                if st.succ.numpy().all():
+                    exit_at = t + tail
+        return t
+
     def run(self, params):
         """Execute the plan for all worlds. `params`: one (n, dim) array per action.
         Returns {cost, n_act, ok, proxy, qpos} numpy arrays (per world)."""
         sim, st, scen = self.sim, self.state, self.scenario
         self.reset()
+        self.steps_run = 0
         for spec, p, steps in zip(scen.specs, params, self.steps):
             wp.launch(A._init_action, dim=self.n, inputs=[
                 self.d.qpos, sim.arm_qadr_wp, sim.base_qadr_wp, st.qc, st.base_cmd,
                 st.vdir, st.at_pre, st.reached, st.reach_t, st.hold, st.done, st.succ])
             self._prep(spec, np.asarray(p, dtype=np.float32))
-            g = self.graphs[spec.kind]
-            for _ in range(steps):
-                wp.capture_launch(g)
+            self.steps_run += self._run_action(spec, steps)
             wp.launch(A._finish_action, dim=self.n, inputs=[st.succ, st.n_act])
         wp.synchronize()
         cost, n_act = st.cost.numpy(), st.n_act.numpy()
@@ -202,4 +224,4 @@ def replay(sim, ik, scenario, params):
     the qpos trajectory (T, nq). Builds a fresh single-world Rollout (needs ik.n == 1)."""
     ro = Rollout(sim, ik, scenario, 1, record_qpos=True)
     ro.run([np.asarray(p, dtype=np.float32)[None] for p in params])
-    return ro.traj.numpy()[:, 0]
+    return ro.traj.numpy()[:ro.steps_run, 0]

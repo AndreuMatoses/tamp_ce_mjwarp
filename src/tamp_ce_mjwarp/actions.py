@@ -44,6 +44,13 @@ PUSH_SLOW = 0.15        # push: EE-to-pose distance under which the arm slows to
 CLOSED, OPEN = 0.0, 0.5  # gripper ctrl
 PI = float(np.pi)
 
+# Early-exit settle tails (s): once ALL worlds latch success, run this much longer before
+# ending the action — covering post-success motion the fixed timeout used to absorb
+# (pick: LIFT_WAIT + the lift travel; place: release + fall; push: topple + block flight;
+# move: braking). Without the pick tail the next action would start with the arm still
+# down and the cube dragged along the table.
+EXIT_TAIL = {"move": 0.3, "pick": 1.0, "place": 1.0, "push": 2.0}
+
 
 def quat_to_mat(q):
     """Rotation matrices (.., 3, 3) from quaternions (.., 4) in (x, y, z, w)."""

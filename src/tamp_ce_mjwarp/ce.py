@@ -98,7 +98,7 @@ def run(sim, ik, scenario, n_iters=8, n=512, n_elite=30, seed=0, verbose=True,
 
         cost, n_act = out["cost"], out["n_act"]
         gok, proxy = out["ok"], out["proxy"]
-        tracks = rollout.probe.numpy() if record_paths else None
+        tracks = rollout.probe.numpy()[:rollout.steps_run] if record_paths else None
 
         if record_paths:
             pop = _pop(out, tracks)

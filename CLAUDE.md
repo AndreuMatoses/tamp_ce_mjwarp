@@ -70,6 +70,10 @@ geoms (`sim.geom_xy` etc.) so regions follow the XML.
   silently degraded contacts). `Rollout` defaults to `njmax=256`; keep headroom.
 - dt=0.003 and Newton solver iters 20/10 are at the edge of grasp stability — don't
   raise dt or lower iters without re-running `tests/test_grasp.py`.
+- Early exit (`Rollout(early_exit=True)`, default) ends an action `EXIT_TAIL[kind]`
+  after all worlds succeed. The tails are load-bearing: pick must finish its lift, push
+  must let the block fly/settle before the goal is evaluated. Shrinking them changes
+  outcomes; `early_exit=False` restores strict fixed-horizon semantics.
 - `n` (worlds) is fixed per `Rollout`/`IK` instance — buffers and graphs are sized to it.
 - Pylance flags warp annotations like `wp.array2d(dtype=...)` ("call expression in type
   expression") — that's the standard Warp kernel idiom; ignore it.
