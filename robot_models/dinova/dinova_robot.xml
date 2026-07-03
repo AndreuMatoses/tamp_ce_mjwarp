@@ -1,0 +1,221 @@
+<mujoco model="dinova">
+  <!-- TidyBot-style Dinova model: Dingo (mecanum) base modeled as a holonomic
+       planar base (joint_x/y/th, position-controlled), Kinova Gen3 Lite 6-DOF
+       arm, a coupled 1-DOF gripper, and base + wrist cameras. Mirrors the
+       structure of models/stanford_tidybot/tidybot.xml so it can be driven by
+       the same policy pipeline. Meshes are referenced by subpath so the model
+       loads from the repo root. -->
+  <compiler angle="radian" autolimits="true"/>
+
+  <option integrator="implicitfast"/>
+  <option cone="elliptic" impratio="10"/>
+
+  <default>
+    <default class="body">
+      <geom material="body"/>
+    </default>
+    <default class="arm_large">
+      <position kp="2000" kv="100"/>
+    </default>
+    <default class="arm_small">
+      <position kp="500" kv="50"/>
+    </default>
+    <default class="finger">
+      <!-- hinge: 0 = closed (tips together), +0.5 rad = open -->
+      <joint type="hinge" armature="0.01" damping="0.1" range="0 0.5"/>
+    </default>
+    <default class="pad">
+      <!-- inner gripping pad: collides (group 3), high friction, soft contact -->
+      <geom type="box" group="3" friction="2 0.05 0.001" solimp="0.95 0.99 0.001"
+        solref="0.004 1" priority="1" rgba="0.15 0.15 0.15 1"/>
+    </default>
+    <!-- Rendered shells: the detailed STL meshes (group 2). contype/conaffinity 0 — the
+         real robot collisions are the simplified primitives below (sim.py also disables all
+         mesh collision for fast MJX compile). -->
+    <default class="visual">
+      <geom group="2" contype="0" conaffinity="0"/>
+    </default>
+    <!-- Simplified COLLISION proxy (group 4): capsules for the arm links, boxes for the base
+         and gripper/fingers. OFF by default (sim.py zeroes contype/conaffinity on group 4
+         unless enable_robot_collision=True); kept separate so we can swap visual<->collision
+         in the viewer (toggle geom groups 2/4) to judge the fit. Translucent blue. -->
+    <default class="collision">
+      <geom group="4" type="capsule" rgba="0.3 0.7 1 0.4"/>
+    </default>
+    <site size="0.005" rgba="0.5 0.5 0.5 0.3" group="5"/>
+  </default>
+
+  <asset>
+    <!-- Arm material/texture (from kinova/attributes.xml) -->
+    <texture name="body" type="cube" builtin="flat" mark="cross" width="127" height="1278"
+      rgb1="0.9 0.9 0.9" rgb2="1 1 1" markrgb="0.8 0.8 0.8" random="0.01"/>
+    <material name="body" texture="body" texuniform="true" rgba="0.8 0.8 0.8 1"/>
+    <material name="chassis_mat" rgba="0.25 0.25 0.27 1"/>
+    <material name="wheel_mat" rgba="0.08 0.08 0.08 1"/>
+
+    <!-- Dingo base meshes -->
+    <mesh name="omni_chassis_collision" file="clearpath/omni_chassis_collision.stl"/>
+    <mesh name="mecanum_wheel" file="clearpath/mecanum_wheel.stl"/>
+
+    <!-- Kinova Gen3 Lite meshes -->
+    <mesh name="BASE" file="kinova/BASE.STL"/>
+    <mesh name="SHOULDER" file="kinova/SHOULDER.STL"/>
+    <mesh name="ARM" file="kinova/ARM.STL"/>
+    <mesh name="FOREARM" file="kinova/FOREARM.STL"/>
+    <mesh name="LOWER_WRIST" file="kinova/LOWER_WRIST.STL"/>
+    <mesh name="UPPER_WRIST" file="kinova/UPPER_WRIST.STL"/>
+    <mesh name="GRIPPER_FRAME" file="kinova/GRIPPER_FRAME.STL"/>
+    <mesh name="RIGHT_FINGER_PROX" file="kinova/RIGHT_FINGER_PROX.STL"/>
+    <mesh name="RIGHT_FINGER_DIST" file="kinova/RIGHT_FINGER_DIST.STL"/>
+    <mesh name="LEFT_FINGER_PROX" file="kinova/LEFT_FINGER_PROX.STL"/>
+    <mesh name="LEFT_FINGER_DIST" file="kinova/LEFT_FINGER_DIST.STL"/>
+  </asset>
+
+  <worldbody>
+    <body name="base_link">
+      <inertial pos="0 0 0.05" mass="60" diaginertia="2 2 2"/>
+      <joint name="joint_x" type="slide" axis="1 0 0"/>
+      <joint name="joint_y" type="slide" axis="0 1 0"/>
+      <joint name="joint_th"/>
+
+      <!-- Dingo chassis + mecanum wheels (rendered meshes; base is holonomic) -->
+      <geom class="visual" type="mesh" mesh="omni_chassis_collision" pos="0 0 0.02" material="chassis_mat"/>
+      <geom class="visual" type="mesh" mesh="mecanum_wheel" pos="0.35 0.22 0.05" quat="0 0 0 1" material="wheel_mat"/>
+      <geom class="visual" type="mesh" mesh="mecanum_wheel" pos="0.35 -0.22 0.05" material="wheel_mat"/>
+      <geom class="visual" type="mesh" mesh="mecanum_wheel" pos="-0.35 0.22 0.05" quat="0 0 0 1" material="wheel_mat"/>
+      <geom class="visual" type="mesh" mesh="mecanum_wheel" pos="-0.35 -0.22 0.05" material="wheel_mat"/>
+
+      <!-- Collision proxy: the whole mobile base (chassis + wheels) as one box -->
+      <geom class="collision" type="box" pos="0 0 0.07" size="0.37 0.26 0.07"/>
+
+      <!-- Base camera, mounted forward-up looking down at the workspace -->
+      <camera name="base" pos="0.25 0 0.45" euler="0 -0.7853981634 -1.5707963268"
+        fovy="52.23384539951277" resolution="640 360"/>
+
+      <!-- Kinova Gen3 Lite arm, mounted on the base -->
+      <body name="gen3/base_link" pos="0.160 0 0.11" quat="1 0 0 0" childclass="body">
+        <inertial pos="0.00244324 0.00015573 0.0861674" quat="0.999765 -0.000276221 0.0211882 0.00451385"
+          mass="1.14608" diaginertia="0.0033632 0.003311 0.000766919"/>
+        <geom class="visual" type="mesh" mesh="BASE"/>
+        <geom class="collision" fromto="0 0 0.02 0 0 0.115" size="0.05"/>
+        <body name="SHOULDER" pos="0 0 0.12825">
+          <inertial pos="-2.477e-05 -0.0221353 0.0993769" quat="0.972429 -0.233194 -0.000430944 -0.00108761"
+            mass="0.959744" diaginertia="0.00165947 0.00158128 0.000717195"/>
+          <joint name="Kinova_0" pos="0 0 0" axis="0 0 1" range="-2.76 2.76" frictionloss="0.2" armature="0.1"/>
+          <geom class="visual" type="mesh" mesh="SHOULDER"/>
+          <geom class="collision" fromto="0 0 0 0 -0.03 0.115" size="0.05"/>
+          <body name="ARM" pos="0 -0.03 0.115" quat="0.707105 0.707108 0 0">
+            <inertial pos="0 0.211548 0.0453031" quat="0.46336 0.529706 -0.534676 0.467794"
+              mass="1.17756" diaginertia="0.0115237 0.0114928 0.000839712"/>
+            <joint name="Kinova_1" pos="0 0 0" axis="0 0 1" range="-2.76 2.76" frictionloss="0.2" armature="0.1"/>
+            <geom class="visual" type="mesh" mesh="ARM"/>
+            <geom class="collision" fromto="0 0 0 0 0.28 0" size="0.045"/>
+            <body name="FOREARM" pos="0 0.28 0" quat="-3.67321e-06 -1 0 0">
+              <inertial pos="0 -0.0950221 -0.0073555" quat="0.50997 0.473675 -0.49139 0.523543"
+                mass="0.597677" diaginertia="0.00169754 0.00163253 0.000291376"/>
+              <joint name="Kinova_2" pos="0 0 0" axis="0 0 1" range="-2.76 2.76" frictionloss="0.2" armature="0.1"/>
+              <geom class="visual" type="mesh" mesh="FOREARM"/>
+              <geom class="collision" fromto="0 0 0 0 -0.14 0.02" size="0.04"/>
+              <body name="LOWER_WRIST" pos="0 -0.14 0.02" quat="0.707105 0.707108 0 0">
+                <inertial pos="0.00575149 0 0.0871921" quat="0.693187 0.143495 0.142688 0.691767"
+                  mass="0.526934" diaginertia="0.000785191 0.000756407 0.000275722"/>
+                <joint name="Kinova_3" pos="0 0 0" axis="0 0 1" range="-2.67 2.67" frictionloss="0.2" armature="0.05"/>
+                <geom class="visual" type="mesh" mesh="LOWER_WRIST"/>
+                <geom class="collision" fromto="0 0 0 0.0285 0 0.105" size="0.04"/>
+                <body name="UPPER_WRIST" pos="0.0285 0 0.105" quat="0.707105 0 0.707108 0">
+                  <inertial pos="-0.0805652 0 0.018728" quat="0.00372858 0.705925 -0.000605285 0.708276"
+                    mass="0.580973" diaginertia="0.00108466 0.00106374 0.000212638"/>
+                  <joint name="Kinova_4" pos="0 0 0" axis="0 0 1" range="-2.67 2.67" frictionloss="0.2" armature="0.03"/>
+                  <geom class="visual" type="mesh" mesh="UPPER_WRIST"/>
+                  <geom class="collision" fromto="0 0 0 -0.105 0 0.0285" size="0.04"/>
+                  <body name="GRIPPER_FRAME" pos="-0.105 0 0.0285" quat="0.707105 0 -0.707108 0">
+                    <inertial pos="9.74456e-07 7.47078e-06 0.0547856" quat="1 0.000127193 0.000353543 -0.00017847"
+                      mass="0.197766" diaginertia="0.000265651 0.000216392 0.000133459"/>
+                    <joint name="Kinova_5" pos="0 0 0" axis="0 0 1" range="-2.67 2.67" frictionloss="0.2" armature="0"/>
+                    <geom class="visual" type="mesh" mesh="GRIPPER_FRAME"/>
+                    <geom class="collision" type="box" pos="0 0 0.04" size="0.028 0.042 0.045"/>
+
+                    <!-- Crab-clamp fingers: each finger hinges about x at a
+                         pivot near its base. Geoms are positioned relative to
+                         the pivot. left axis is -x so a single (coupled) joint
+                         value opens/closes both fingers symmetrically. -->
+                    <body name="right_finger" pos="0 -0.026 0.05">
+                      <joint name="gripper_joint" class="finger" axis="1 0 0"/>
+                      <geom class="visual" pos="0 -0.0045 0.020" quat="0.707105 0 0.707108 0" type="mesh" mesh="RIGHT_FINGER_PROX"/>
+                      <geom class="visual" pos="0 0.016 0.0656" quat="0.707105 0 0.707108 0" type="mesh" mesh="RIGHT_FINGER_DIST"/>
+                      <!-- no collision proxy on the fingers: the grasp pads (group 3) handle finger
+                           contact; a finger box here would fight the pads during grasping. -->
+                      <!-- <geom class="collision" type="box" pos="0 0.012 0.045" size="0.011 0.016 0.05"/> -->
+                      <!-- longer/wider pad centred on the grasp point so the whole face grips
+                           the cube (not just the tip); quat pre-tilts the pad ~8deg about x so
+                           it sits PARALLEL to the cube face at the grasp opening (the finger
+                           pivots, so an untilted pad contacts at an angle). See grasp_mjx.py. -->
+                      <geom class="pad" name="right_pad" pos="0 0.020 0.08" size="0.015 0.003 0.03"
+                        quat="0.9936 -0.1132 0 0"/>
+                    </body>
+                    <body name="left_finger" pos="0 0.026 0.05">
+                      <joint name="left_finger_joint" class="finger" axis="-1 0 0"/>
+                      <geom class="visual" pos="0 0.0045 0.020" quat="0.707105 0 0.707108 0" type="mesh" mesh="LEFT_FINGER_PROX"/>
+                      <geom class="visual" pos="0 -0.016 0.0656" quat="0.707105 0 0.707108 0" type="mesh" mesh="LEFT_FINGER_DIST"/>
+                      <!-- no collision proxy on the fingers (see right_finger) -->
+                      <!-- <geom class="collision" type="box" pos="0 -0.012 0.045" size="0.011 0.016 0.05"/> -->
+                      <geom class="pad" name="left_pad" pos="0 -0.020 0.08" size="0.015 0.003 0.03"
+                        quat="0.9936 0.1132 0 0"/>
+                    </body>
+
+                    <!-- Wrist camera, looking along the gripper approach axis (+z) -->
+                    <camera name="wrist" pos="0 -0.06 0.04" euler="3.14159265 0 0"
+                      fovy="50" resolution="640 480"/>
+                    <!-- Tool/grasp point: sits at the gripper PAD centre so "drive pinch_site
+                         to the object centre" cradles the object instead of ramming past it
+                         (the old 0.156 was ~3 cm beyond the pads -> grasp failures / cube
+                         shooting off). See tests/grasp_debug.py. -->
+                    <site name="pinch_site" type="sphere" pos="0 0 0.14" size="0.01" rgba="0 0 1 1"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <equality>
+    <!-- Couple both fingers so a single actuator opens/closes the gripper -->
+    <joint joint1="left_finger_joint" joint2="gripper_joint" polycoef="0 1 0 0 0"/>
+  </equality>
+
+  <contact>
+    <!-- Fingers don't collide with the gripper frame (only the pads grip) -->
+    <exclude body1="GRIPPER_FRAME" body2="right_finger"/>
+    <exclude body1="GRIPPER_FRAME" body2="left_finger"/>
+    <!-- Adjacent-link exclusions so the collision proxy (group 4) doesn't self-collide on
+         its overlapping capsules when enable_robot_collision is on -->
+    <exclude body1="base_link" body2="gen3/base_link"/>
+    <exclude body1="gen3/base_link" body2="SHOULDER"/>
+    <exclude body1="SHOULDER" body2="ARM"/>
+    <exclude body1="ARM" body2="FOREARM"/>
+    <exclude body1="FOREARM" body2="LOWER_WRIST"/>
+    <exclude body1="LOWER_WRIST" body2="UPPER_WRIST"/>
+    <exclude body1="UPPER_WRIST" body2="GRIPPER_FRAME"/>
+  </contact>
+
+  <actuator>
+    <!-- Holonomic base -->
+    <position name="joint_x" joint="joint_x" kp="1000000" kv="50000"/>
+    <position name="joint_y" joint="joint_y" kp="1000000" kv="50000"/>
+    <position name="joint_th" joint="joint_th" kp="50000" kv="1000"/>
+
+    <!-- Arm (position-controlled, gravity compensated at runtime) -->
+    <position class="arm_large" name="Kinova_0" joint="Kinova_0"/>
+    <position class="arm_large" name="Kinova_1" joint="Kinova_1"/>
+    <position class="arm_large" name="Kinova_2" joint="Kinova_2"/>
+    <position class="arm_small" name="Kinova_3" joint="Kinova_3"/>
+    <position class="arm_small" name="Kinova_4" joint="Kinova_4"/>
+    <position class="arm_small" name="Kinova_5" joint="Kinova_5"/>
+
+    <!-- Gripper: ctrl is hinge angle (rad), 0 = closed, 0.5 = open -->
+    <position name="gripper_actuator" joint="gripper_joint" kp="20" kv="2" ctrlrange="0 0.5"/>
+  </actuator>
+</mujoco>

@@ -1,0 +1,26 @@
+[project]
+name = "tamp-ce-mjwarp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "h5py>=3.16.0",
+    "imageio[ffmpeg]>=2.37.3",
+    "matplotlib>=3.11.0",
+    "mujoco>=3.3",
+    "mujoco-warp>=3.10.0.1",
+    "numpy>=2.5.0",
+    "scipy>=1.18.0",
+    "tqdm>=4.68.3",
+    "warp-lang>=1.7",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.25,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

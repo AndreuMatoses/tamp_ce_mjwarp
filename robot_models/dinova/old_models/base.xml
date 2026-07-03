@@ -1,0 +1,7 @@
+<mujoco model="dingo">
+    
+    <worldbody>
+        <include file="clearpath/dingo.xml"/>
+    </worldbody>
+    <include file="clearpath/attributes.xml"/>
+</mujoco>
