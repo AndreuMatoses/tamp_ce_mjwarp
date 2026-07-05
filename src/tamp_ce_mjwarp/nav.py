@@ -1,9 +1,11 @@
 """Value-iteration navigation function for the mobile base, batched over per-world goals.
 
 A shared static occupancy grid is built once per scene (host numpy). Per CE iteration,
-`NavBatch.compute` runs a fixed-iteration VI relaxation on the GPU (one field per world's
-goal), downloads the fields, computes the smoothed descent-direction grid on the host, and
-uploads it as `gxy` for the per-step bilinear lookup inside the move control kernel.
+`NavBatch.compute` runs one captured CUDA graph per move action: fixed-iteration VI
+relaxation (one field per world's goal) followed by the fill/gradient/blur kernels that
+produce the smoothed descent grid `gxy` for the per-step bilinear lookup inside the move
+control kernel. Everything stays on device (the host `value_grad` remains as the
+reference implementation and for plots/tests).
 
 Convention: grids are indexed [row=iy, col=ix]; world x -> column, world y -> row.
 `bounds = (xmin, xmax, ymin, ymax)`. A scenario's nav tuple is
@@ -102,6 +104,61 @@ def _vi_relax(occ: wp.array2d(dtype=wp.int32), goal: wp.array2d(dtype=wp.int32),
     V_out[i, y, x] = wp.min(v, BIG)
 
 
+@wp.kernel
+def _grad_fill(V: wp.array3d(dtype=wp.float32), Vf: wp.array3d(dtype=wp.float32)):
+    """Fill BIG cells (obstacle/unreachable) from their smallest 3x3 neighbour, so the
+    descent gradient has no BIG cliff pushing it off walls (GPU port of _nbr_min)."""
+    i, y, x = wp.tid()
+    v = V[i, y, x]
+    if v < BIG * 0.5:
+        Vf[i, y, x] = v
+        return
+    H, W = V.shape[1], V.shape[2]
+    m = BIG
+    for dy in range(-1, 2):
+        for dx in range(-1, 2):
+            yn, xn = y + dy, x + dx
+            if yn >= 0 and yn < H and xn >= 0 and xn < W:
+                m = wp.min(m, V[i, yn, xn])
+    Vf[i, y, x] = m
+
+
+@wp.kernel
+def _grad_unit(Vf: wp.array3d(dtype=wp.float32), g: wp.array3d(dtype=wp.vec2)):
+    """Unit descent direction (-d/dcol, -d/drow): central differences inside, one-sided
+    at the grid border (matches np.gradient)."""
+    i, y, x = wp.tid()
+    H, W = Vf.shape[1], Vf.shape[2]
+    xm, xp = wp.max(x - 1, 0), wp.min(x + 1, W - 1)
+    ym, yp = wp.max(y - 1, 0), wp.min(y + 1, H - 1)
+    gx = -(Vf[i, y, xp] - Vf[i, y, xm]) / float(xp - xm)
+    gy = -(Vf[i, yp, x] - Vf[i, ym, x]) / float(yp - ym)
+    mag = wp.sqrt(gx * gx + gy * gy) + 1e-9
+    g[i, y, x] = wp.vec2(gx / mag, gy / mag)
+
+
+@wp.kernel
+def _grad_blur(V: wp.array3d(dtype=wp.float32), src: wp.array3d(dtype=wp.vec2),
+               dst: wp.array3d(dtype=wp.vec2)):
+    """One masked 3x3 box-blur pass over free cells (edge-padded via index clamping;
+    non-free cells pass through). GPU port of the value_grad blur loop."""
+    i, y, x = wp.tid()
+    if V[i, y, x] >= BIG * 0.5:
+        dst[i, y, x] = src[i, y, x]
+        return
+    H, W = V.shape[1], V.shape[2]
+    s = wp.vec2(0.0, 0.0)
+    den = float(0.0)
+    for dy in range(-1, 2):
+        for dx in range(-1, 2):
+            yn = wp.clamp(y + dy, 0, H - 1)
+            xn = wp.clamp(x + dx, 0, W - 1)
+            if V[i, yn, xn] < BIG * 0.5:
+                s += src[i, yn, xn]
+                den += 1.0
+    dst[i, y, x] = s / (den + 1e-9)
+
+
 @wp.func
 def descent_dir(gxy: wp.array3d(dtype=wp.vec2), i: int, pos: wp.vec2,
                 xmin: float, ymin: float, res: float) -> wp.vec2:
@@ -122,7 +179,10 @@ def descent_dir(gxy: wp.array3d(dtype=wp.vec2), i: int, pos: wp.vec2,
 
 class NavBatch:
     """Device-side batched VI: one cost-to-go field per world's goal, relaxed `n_iters`
-    times by a captured CUDA graph; the smoothed gradient field lives in `self.gxy`."""
+    times, then filled/differentiated/blurred into the smoothed gradient field
+    `self.gxy` — all inside one captured CUDA graph (no host round-trip)."""
+
+    BLUR = 3  # box-blur passes over the unit direction field (mirrors value_grad)
 
     def __init__(self, nav, n):
         occ, self.bounds, self.res, self.n_iters, self.remap = nav
@@ -131,6 +191,8 @@ class NavBatch:
         self.occ_wp = wp.array(self.occ.astype(np.int32), dtype=wp.int32)
         self.goal = wp.zeros((n, 2), dtype=wp.int32)
         self.V = [wp.zeros((n, H, W), dtype=wp.float32) for _ in range(2)]
+        self.Vf = wp.zeros((n, H, W), dtype=wp.float32)
+        self.gtmp = wp.zeros((n, H, W), dtype=wp.vec2)
         self.gxy = wp.zeros((n, H, W), dtype=wp.vec2)
         self._n, self._graph = n, None
 
@@ -142,17 +204,26 @@ class NavBatch:
             wp.launch(_vi_relax, dim=(n, H, W), inputs=[self.occ_wp, self.goal, src, dst])
         return self.V[self.n_iters % 2]
 
+    def _pipeline(self):
+        n, (H, W) = self._n, self.occ.shape
+        V = self._vi()
+        wp.launch(_grad_fill, dim=(n, H, W), inputs=[V, self.Vf])
+        # BLUR is odd: gtmp -> gxy -> gtmp -> gxy leaves the final field in gxy
+        wp.launch(_grad_unit, dim=(n, H, W), inputs=[self.Vf, self.gtmp])
+        src, dst = self.gtmp, self.gxy
+        for _ in range(self.BLUR):
+            wp.launch(_grad_blur, dim=(n, H, W), inputs=[V, src, dst])
+            src, dst = dst, src
+
     def compute(self, goals_xy):
         """Fill `self.gxy` with the smoothed descent field for per-world goals (n, 2)."""
         self.goal.assign(snap_goals(goals_xy, self.occ, self.bounds, self.res, self.remap))
         if self._graph is None:
-            self._vi()  # warm-up compile, then capture
+            self._pipeline()  # warm-up compile, then capture
             with wp.ScopedCapture() as cap:
-                self._vfinal = self._vi()
+                self._pipeline()
             self._graph = cap.graph
         wp.capture_launch(self._graph)
-        gx, gy = value_grad(self._vfinal.numpy())
-        self.gxy.assign(np.stack([gx, gy], axis=-1).astype(np.float32))
 
 
 def _box3(a):

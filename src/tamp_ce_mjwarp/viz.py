@@ -237,11 +237,32 @@ def _ghost(mj_model, datas, scn, opt, pert, alpha):
             scn.geoms[g].rgba[3] *= alpha
 
 
+def _stamp(frame, label):
+    """Draw a text label onto a frame (top-left). Best-effort: returns the frame
+    unchanged if PIL is unavailable."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        return frame
+    im = Image.fromarray(frame)
+    draw = ImageDraw.Draw(im)
+    try:
+        font = ImageFont.load_default(size=22)
+    except TypeError:  # older PIL: no size kwarg
+        font = ImageFont.load_default()
+    draw.text((11, 9), label, fill=(0, 0, 0), font=font)
+    draw.text((10, 8), label, fill=(255, 255, 255), font=font)
+    return np.asarray(im)
+
+
 def render_batch(mj_model, qpos_batch, path, camera=-1, width=640, height=480, fps=None,
-                 every=10, alpha=0.45, max_geom=40000, show="visual", dt=None):
+                 every=10, alpha=0.45, max_geom=40000, show="visual", dt=None,
+                 writer=None, label=None):
     """Superpose a batch of qpos trajectories (N, T, nq) into one render: env 0 is drawn
     solid (with the static scene), every other env as translucent ghosts. Writes an mp4
-    (or a single PNG if there's only one frame)."""
+    (or a single PNG if there's only one frame). With `writer` (an open imageio writer),
+    frames stream into it instead — used to concatenate segments into one video. `label`
+    stamps a text overlay on every frame."""
     if fps is None:
         fps = (1.0 / (every * dt)) if dt else 30
     qpos_batch = np.asarray(qpos_batch)
@@ -257,8 +278,16 @@ def render_batch(mj_model, qpos_batch, path, camera=-1, width=640, height=480, f
         for d, q in zip(datas[1:], qpos_batch[1:, t]):
             d.qpos[:] = q
         _ghost(mj_model, datas[1:], renderer.scene, opt, pert, alpha)
-        frames.append(renderer.render())
+        frame = renderer.render()
+        if label is not None:
+            frame = _stamp(frame, label)
+        if writer is not None:
+            writer.append_data(frame)
+        else:
+            frames.append(frame)
     renderer.close()
+    if writer is not None:
+        return path
     if len(frames) == 1:
         imageio.imwrite(path, frames[0])
     else:

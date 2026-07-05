@@ -60,9 +60,12 @@ def make_pick_place_obstacle(sim, variant="wall"):
         # translate the base in
         regions.annulus(table1, 1.1, 1.5, name="near table1"),
         regions.quat(tilt=0.3, name="pick quat"),
-        regions.annulus(table2, 1.2, 1.7, name="near table2"),
-        regions.point(center=(table2[0], 0.5 * (2.0 + table2[1]), 0.3),
-                      size=(0.2, 0.4, 0.6), name="place pose"),
+        # r_out 2.05 / place-y down to 1.7: keeps the ramp variant's slide mode samplable
+        # (standoffs south of y~0.55 = r>1.9, drop point just past the high edge at y~1.8)
+        # while the same definitions still cover the wall variant's go-around solutions
+        regions.annulus(table2, 1.2, 2.05, name="near table2"),
+        regions.point(center=(table2[0], 2.2, 0.3),
+                      size=(0.2, 0.5, 0.6), name="place pose"),
         regions.box(center=(-1.0, 1.0), lo=(-0.3, -0.3), hi=(0.3, 0.3), name="exit"),
     ]
     if variant == "ramp_forced":

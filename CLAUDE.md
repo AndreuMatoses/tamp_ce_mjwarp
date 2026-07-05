@@ -12,9 +12,10 @@ src/tamp_ce_mjwarp/
   actions.py    per-kind Warp control kernels + init/prep/record kernels + RolloutState
   plan.py       ActionSpec + Rollout (batched Data, captured graphs, action boundaries, run())
   ik.py         batched whole-body DLS IK on the minimal model (one captured Newton graph)
-  nav.py        VI nav field: GPU relaxation kernel + host gradient; occupancy helpers
+  nav.py        VI nav field: GPU relaxation + gradient kernels (one captured graph); occupancy helpers
   regions.py    sampling regions (box/annulus/quat/point/point_quat), numpy rng
-  ce.py         CE loop: draw -> Rollout.run -> tiered elites -> per-dim Gaussian refit
+  ce.py         CE loop: draw -> Rollout.run -> tiered elites -> per-dim Gaussian refit;
+                opt-in: rank-weighted refit, k-mode clustering, explore share, smoothing
   scenarios.py  scenario registry: scene + regions + specs + vectorized symbolic goal
   viz.py        rendering/viewers, population & convergence plots, HDF5 solution I/O
 scenes/, robot_models/dinova/   MJCF assets (collision primitives only; meshes are visual)
@@ -74,6 +75,10 @@ geoms (`sim.geom_xy` etc.) so regions follow the XML.
   after all worlds succeed. The tails are load-bearing: pick must finish its lift, push
   must let the block fly/settle before the goal is evaluated. Shrinking them changes
   outcomes; `early_exit=False` restores strict fixed-horizon semantics.
+- `Rollout(exit_frac<1)` (quantile early exit) silently kills rare slow solution modes
+  at discovery: the ramp-slide worlds are among the slowest placers, and cutting the
+  slowest 2% erased that mode from iteration 0. Discovery runs must use the default 1.0;
+  the option is for replays/converged sweeps only.
 - `n` (worlds) is fixed per `Rollout`/`IK` instance — buffers and graphs are sized to it.
 - Pylance flags warp annotations like `wp.array2d(dtype=...)` ("call expression in type
   expression") — that's the standard Warp kernel idiom; ignore it.

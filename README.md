@@ -30,6 +30,19 @@ uv run python examples/visualize_scenario.py pick_place_obstacle_wall # inspect 
 uv run pytest                                                          # IK + grasp tests
 ```
 
+For the ramp variant to reliably *discover* the slide solution (place the cube past the
+ramp's high edge and let physics carry it to the table) use the multi-mode CE settings —
+see `notes/ramp_mode_tuning.md` for the why:
+
+```bash
+uv run python examples/pick_place_obstacle.py --variant ramp --iters 14 --n 6144 \
+    --n-elite 51 --elite-temp 2 --n-modes 3 --explore 0.15 --robust-k 16
+# concatenated per-iteration population video of a finished run:
+uv run python examples/replay_batch.py pick_place_obstacle_ramp \
+    --from-solution solutions/pick_place_obstacle_ramp/pick_place_obstacle_ramp.h5 \
+    --all-iters --video iterations.mp4 --n 32 --speed 4 --camera top
+```
+
 Outputs land in `solutions/<scenario>/`: the best solution (HDF5 with per-iteration
 distributions, replayable at any iteration), an mp4 replay, per-iteration population
 plots, and CE convergence diagnostics.

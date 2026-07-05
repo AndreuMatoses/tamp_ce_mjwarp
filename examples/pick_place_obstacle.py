@@ -6,7 +6,8 @@ parameter regions yield different solutions depending on the obstacle between th
 iteration, then saves and renders the best solution.
 
     uv run python examples/pick_place_obstacle.py [--variant wall|ramp|ramp_forced]
-                                        [--iters 8] [--n 512] [--last-plot-only]
+                                        [--iters 8] [--n 512] [--n-elite 30] [--seed 0]
+                                        [--tag NAME] [--last-plot-only]
                                         [--camera behind|top|gripper]
 """
 
@@ -14,7 +15,9 @@ import argparse
 import os
 
 
-def main(variant, iters, n, last_plot_only, camera):
+def main(variant, iters, n, last_plot_only, camera, seed=0, n_elite=30, tag=None,
+         elite_temp=None, smooth=None, n_modes=1, explore=0.0, robust_k=None,
+         exit_frac=1.0):
     from tamp_ce_mjwarp import ce, plan, scenarios, viz
     from tamp_ce_mjwarp.ik import IK
     from tamp_ce_mjwarp.log import log, timed
@@ -25,7 +28,7 @@ def main(variant, iters, n, last_plot_only, camera):
     sc = scenarios.make_pick_place_obstacle(sim, variant)
     ik = IK(n)  # one whole-body solver; each action picks its mode via spec.ik
 
-    outdir = f"solutions/{sc.name}"
+    outdir = f"solutions/{sc.name}" + (f"_{tag}" if tag else "")
     os.makedirs(outdir, exist_ok=True)
 
     with timed("Plotting parameter regions"):
@@ -38,7 +41,9 @@ def main(variant, iters, n, last_plot_only, camera):
         with timed(f"Plotting iter {it}"):
             viz.plot_paths(sc, pop, f"{outdir}/iter_{it:02d}.png", it=it)
 
-    best, _, _ = ce.run(sim, ik, sc, n_iters=iters, n=n, n_elite=30,
+    best, _, _ = ce.run(sim, ik, sc, n_iters=iters, n=n, n_elite=n_elite, seed=seed,
+                        elite_temp=elite_temp, smooth=smooth, n_modes=n_modes,
+                        explore=explore, robust_k=robust_k, exit_frac=exit_frac,
                         record_paths=True, on_iter=on_iter)
 
     # Always save + render: a real solution if the goal was reached, else the
@@ -69,8 +74,27 @@ if __name__ == "__main__":
     ap.add_argument("--variant", choices=["wall", "ramp", "ramp_forced"], default="wall")
     ap.add_argument("--iters", type=int, default=8)
     ap.add_argument("--n", type=int, default=512)
+    ap.add_argument("--n-elite", type=int, default=30)
+    ap.add_argument("--elite-temp", type=float, default=None,
+                    help="cost-rank weighting of the refit (see ce.run); default uniform")
+    ap.add_argument("--smooth", type=float, default=None,
+                    help="CE smoothing: fraction of the previous dist retained per refit")
+    ap.add_argument("--n-modes", type=int, default=1,
+                    help="cluster elites into this many modes, one Gaussian each (see ce.run)")
+    ap.add_argument("--explore", type=float, default=0.0,
+                    help="fraction of every population drawn fresh from the priors")
+    ap.add_argument("--robust-k", type=int, default=None,
+                    help="rank elites by k-NN neighbourhood-smoothed cost (see ce.run)")
+    ap.add_argument("--exit-frac", type=float, default=1.0,
+                    help="end an action once this fraction of worlds succeeded (see Rollout)")
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--tag", default=None,
+                    help="suffix for the output dir, e.g. seed1 (avoids overwriting runs)")
     ap.add_argument("--last-plot-only", action="store_true",
                     help="only plot the final iteration (skip per-iter convergence plots)")
     ap.add_argument("--camera", choices=["behind", "top", "gripper"], default="behind")
     args = ap.parse_args()
-    main(args.variant, args.iters, args.n, args.last_plot_only, args.camera)
+    main(args.variant, args.iters, args.n, args.last_plot_only, args.camera,
+         seed=args.seed, n_elite=args.n_elite, tag=args.tag, elite_temp=args.elite_temp,
+         smooth=args.smooth, n_modes=args.n_modes, explore=args.explore,
+         robust_k=args.robust_k, exit_frac=args.exit_frac)

@@ -41,9 +41,13 @@ class Rollout:
     EXIT_CHECK = 128  # steps between all-done readbacks (each costs one small sync)
 
     def __init__(self, sim, ik, scenario, n, record_probe=False, record_qpos=False,
-                 nconmax=None, njmax=256, early_exit=True):
+                 nconmax=None, njmax=256, early_exit=True, exit_frac=1.0):
         assert ik.n == n, f"IK batch size {ik.n} != rollout batch size {n}"
         self.sim, self.ik, self.scenario, self.n = sim, ik, scenario, n
+        # exit_frac < 1: end an action once this fraction of worlds has succeeded (a few
+        # stragglers otherwise force the full horizon at large n). Cut-short failed
+        # worlds accrue less step cost, so keep 1.0 when exact cost parity matters.
+        self.exit_frac = exit_frac
         self.steps = [_sec2steps(s.timeout) for s in scenario.specs]
         # njmax default: the ramp scenario peaks at ~155 constraint rows/world (overflow
         # prints a warning and silently degrades contacts, so keep headroom)
@@ -186,7 +190,7 @@ class Rollout:
                 if t >= exit_at:
                     break
             elif self.early_exit and t % self.EXIT_CHECK == 0 and t + tail < steps:
-                if st.succ.numpy().all():
+                if st.succ.numpy().mean() >= self.exit_frac:
                     exit_at = t + tail
         return t
 
