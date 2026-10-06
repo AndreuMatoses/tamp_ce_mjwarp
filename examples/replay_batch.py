@@ -103,7 +103,7 @@ def main(name, video, n, filt, seed, from_solution, it, every, speed, alpha, cam
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("scenario", help="e.g. pick_place_obstacle_wall / stick_and_box")
+    ap.add_argument("scenario", help="e.g. pick_place_obstacle_wall / stick_and_box_right")
     ap.add_argument("--video", default=None, help="render to this mp4 instead of the viewer")
     ap.add_argument("--n", type=int, default=32, help="number of plans to sample & superpose")
     ap.add_argument("--filter", choices=["all", "success", "fail"], default="all")

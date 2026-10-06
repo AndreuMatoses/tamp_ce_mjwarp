@@ -114,13 +114,22 @@ def make_pick_place_obstacle(sim, variant="wall"):
                     regs, specs, cq, cube_xy, navt, obstacles=obstacles, goal=goal)
 
 
-def make_stick_and_box(sim):
+_SAB_PREFIX = "stick_and_box_"
+# nav grid bounds per variant: start, stick standoffs and the detour around the box
+_SAB_BOUNDS = {"right": (-0.6, 2.6, -1.6, 1.2), "between": (-1.6, 1.6, -0.6, 3.4)}
+
+
+def make_stick_and_box(sim, variant="right"):
     """Topple a free-standing stick (with a block balanced on top) so the block is flung
     into an open box a stick-height away — a non-prehensile push. The plan is move-to(a
     standoff around the stick) then push (drive the closed hand into the stick with
-    whole-body IK, slowing on the final approach)."""
+    whole-body IK, slowing on the final approach). Variants: "right" (stick on the robot's
+    right, box beside it) and "between" (box between the robot start and the stick, so the
+    base must route around the box and push from the far side)."""
     stick_xy = sim.body_xy("stick")
     block_q = sim.joint_qadr("block_joint")  # the object CE tracks / the goal checks
+    to_box = np.subtract(sim.geom_xy("box_floor"), stick_xy)
+    push_xy = np.asarray(stick_xy) + 0.06 * to_box / np.linalg.norm(to_box)  # past the stick
 
     specs = [
         ActionSpec("move", timeout=5.0),
@@ -129,11 +138,11 @@ def make_stick_and_box(sim):
     regs = [
         # wide ring beyond arm reach: the full-body-IK push must translate the base in
         regions.annulus(stick_xy, 0.8, 1.0, name="near stick"),
-        regions.point_quat(center=(stick_xy[0], stick_xy[1] + 0.06, 0.34),
+        regions.point_quat(center=(push_xy[0], push_xy[1], 0.34),
                            size=(0.1, 0.12, 0.16), tilt=0.5, name="push pose"),
     ]
 
-    bounds = (-0.6, 2.6, -1.6, 1.2)
+    bounds = _SAB_BOUNDS[variant]
     res = 0.1
     sx, sy = stick_xy
     hsx, hsy = (float(v) for v in sim.mj_model.geom("stick_geom").size[:2])
@@ -158,8 +167,8 @@ def make_stick_and_box(sim):
         proxy = np.sqrt(dx * dx + dy * dy) + np.maximum(blk[:, 2] - rim_z, 0.0)  # ->0 inside
         return in_box, proxy
 
-    return Scenario("stick_and_box", "scenes/stick_and_box.xml", regs, specs, block_q,
-                    nav=navt, obstacles=obstacles, goal=goal)
+    return Scenario(f"stick_and_box_{variant}", f"scenes/stick_and_box_{variant}.xml", regs,
+                    specs, block_q, nav=navt, obstacles=obstacles, goal=goal)
 
 
 def simple_pickplace():
@@ -181,8 +190,8 @@ def scene_path(name):
     """Scene XML for a scenario name (so a saved solution can be reloaded from name alone)."""
     if name.startswith(_PPO_PREFIX):
         return f"scenes/{_obstacle_scene_stem(name[len(_PPO_PREFIX):])}.xml"
-    if name == "stick_and_box":
-        return "scenes/stick_and_box.xml"
+    if name.startswith(_SAB_PREFIX):
+        return f"scenes/{name}.xml"
     if name == "simple_pickplace":
         return "robot_models/dinova/dinova_block_scene.xml"
     raise ValueError(f"unknown scenario {name!r}")
@@ -192,8 +201,8 @@ def build(sim, name):
     """Rebuild a Scenario from its name (e.g. to replay a saved solution)."""
     if name.startswith(_PPO_PREFIX):
         return make_pick_place_obstacle(sim, name[len(_PPO_PREFIX):])
-    if name == "stick_and_box":
-        return make_stick_and_box(sim)
+    if name.startswith(_SAB_PREFIX):
+        return make_stick_and_box(sim, name[len(_SAB_PREFIX):])
     if name == "simple_pickplace":
         return simple_pickplace()
     raise ValueError(f"unknown scenario {name!r}")

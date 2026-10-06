@@ -1,10 +1,10 @@
-<mujoco model="stick_and_box">
-  <!-- Non-prehensile push scenario: a tall free-standing STICK has a red BLOCK balanced
-       on top; an open BOX (4 walls + floor, no lid) sits a stick-height away. The plan is
-       MoveTo(standoff around the stick) -> push (a "place" grasp that drives the closed
-       gripper into the stick), toppling it so the block is flung into the box. CE searches
-       the standoff + push pose that lands the block inside. Collision geoms are primitives
-       only (MJX mesh-collision constraint). -->
+<mujoco model="stick_and_box_right">
+  <!-- Non-prehensile push scenario, RIGHT variant (stick on the robot's right): a tall
+       free-standing STICK has a red BLOCK balanced on top; an open BOX (4 walls + floor, no
+       lid) sits a stick-height away. The plan is MoveTo(standoff around the stick) -> push
+       (drive the closed gripper into the stick), toppling it so the block is flung into the
+       box. CE searches the standoff + push pose that lands the block inside. Collision geoms
+       are primitives only. -->
   <compiler meshdir="../robot_models/dinova" angle="radian" autolimits="true"/>
   <include file="../robot_models/dinova/dinova_robot.xml"/>
 

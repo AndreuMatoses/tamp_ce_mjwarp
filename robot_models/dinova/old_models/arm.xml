@@ -1,7 +1,0 @@
-<mujoco model="kinova">
-    
-    <worldbody>
-        <include file="kinova/gen3_lite.xml"/>
-    </worldbody>
-    <include file="kinova/attributes.xml"/>
-</mujoco>

@@ -1,7 +1,8 @@
 # CLAUDE.md
 
 CE optimization over continuous parameters of symbolic TAMP plans, scored by batched
-MuJoCo Warp rollouts. Port of `../tamp_ce_jax` (MJX); see README.md for usage.
+MuJoCo Warp rollouts. Port of the RA-L paper code (Isaac Gym), via an unreleased MJX
+prototype; see README.md for usage and the deviations from the paper.
 Run things with `uv run python ...`; tests with `uv run pytest`.
 
 ## Layout
@@ -57,9 +58,9 @@ geoms (`sim.geom_xy` etc.) so regions follow the XML.
   API traps) — no tuning history or change rationale.
 - **Batch-first**: every per-world quantity is a `wp.array` with a leading `nworld` dim;
   control logic is branchless per-world (sticky integer latches), a direct transcription
-  of the old JAX `lax.scan` bodies. Host code (CE, sampling, elites, nav gradients,
+  of the MJX prototype's `lax.scan` bodies. Host code (CE, sampling, elites, nav gradients,
   plots) is plain numpy.
-- **Fidelity to the MJX repo's behavior** over cleverness: same constants, same phase
+- **Fidelity to the MJX prototype's behavior** over cleverness: same constants, same phase
   logic, same cost (+1/step until action success), same CE tiering. Deviations must be
   deliberate and documented (e.g. no gravcomp, no collision curriculum).
 

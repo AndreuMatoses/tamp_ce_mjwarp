@@ -1,7 +1,7 @@
 """Batched grasp validation through the real rollout path: the phased pick action at many
 randomized cube positions in parallel, with exact top-down grasps. This is the physics
-canary for the MJWarp port (float32 + implicit integrator vs the MJX baseline): the same
-setup holds ~100% grasp success at dt=0.003, solver iters 20/10.
+canary for the MJWarp physics settings (float32 + implicit integrator): the same setup
+holds ~100% grasp success at dt=0.003, solver iters 20/10.
 
     uv run python tests/test_grasp.py
 """
@@ -49,7 +49,7 @@ def run(n=16, seed=0, verbose=True):
 
 def test_grasp_success_rate():
     # cubes at the near edge of the workspace (x~0.40) are marginal for a top-down grasp
-    # (bad DLS basin); the MJX repo's grasp test asserted the same >= 0.8
+    # (bad DLS basin), hence the >= 0.8 bound
     assert run(n=16, verbose=False) >= 0.8
 
 

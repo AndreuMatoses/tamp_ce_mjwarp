@@ -171,7 +171,7 @@ def _ctrl_pick(
     ctrl[i, gripper_act] = wp.where(settled, CLOSED, OPEN)
     _write_base(ctrl, base_act, i, bc)
 
-    gj = qpos[i, grip_qadr]  # gripper joint (read pre-step: one-step lag vs MJX version)
+    gj = qpos[i, grip_qadr]  # gripper joint (read pre-step: one-step lag)
     hold[i] = wp.where(settled and gj > GRIP_LO and gj < GRIP_HI, hold[i] + 1, 0)
     held = hold[i] >= GRIP_HOLD
     succ[i] = wp.where(held, 1, 0)

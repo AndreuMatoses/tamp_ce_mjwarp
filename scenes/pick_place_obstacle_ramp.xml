@@ -3,7 +3,7 @@
        rectangular base prism with a 45 deg wedge on top (the old isaac-gym obstacle_ramp).
        A cube placed near the high edge can SLIDE down onto table2 - a physics-driven
        solution CE can discover. Layout matches the old repo (tables y=-1 / y=2.45, ramp
-       at y=2). Built from box primitives only (MJX can't collide meshes), tall side faces
+       at y=2). Built from box primitives only, tall side faces
        table1 and slopes down toward table2. -->
   <compiler meshdir="../robot_models/dinova" angle="radian" autolimits="true"/>
   <include file="../robot_models/dinova/dinova_robot.xml"/>

@@ -2,27 +2,28 @@
 
 A free-standing stick has a block balanced on top; an open box sits a stick-height away.
 The plan is move-to(a standoff around the stick) -> push (drive the closed hand into the
-stick), toppling it so the block is flung into the box.
+stick), toppling it so the block is flung into the box. Variants: "right" (stick on the
+robot's right) and "between" (box between the robot and the stick).
 
-    uv run python examples/stick_and_box.py [--iters 8] [--n 512] [--n-elite 30]
-                                            [--seed 0] [--tag NAME] [--last-plot-only]
-                                            [--camera behind|top|gripper]
+    uv run python examples/stick_and_box.py [--variant right|between] [--iters 8] [--n 512]
+                                            [--n-elite 30] [--seed 0] [--tag NAME]
+                                            [--last-plot-only] [--camera behind|top|gripper]
 """
 
 import argparse
 import os
 
 
-def main(iters, n, last_plot_only, camera, seed=0, n_elite=30, tag=None,
+def main(iters, n, last_plot_only, camera, variant="right", seed=0, n_elite=30, tag=None,
          elite_temp=None, smooth=None, n_modes=1, explore=0.0, robust_k=None):
     from tamp_ce_mjwarp import ce, plan, scenarios, viz
     from tamp_ce_mjwarp.ik import IK
     from tamp_ce_mjwarp.log import log, timed
     from tamp_ce_mjwarp.sim import Sim
 
-    log("Loading scenario 'stick_and_box'")
-    sim = Sim("scenes/stick_and_box.xml")
-    sc = scenarios.make_stick_and_box(sim)
+    log(f"Loading scenario 'stick_and_box_{variant}'")
+    sim = Sim(scenarios.scene_path(f"stick_and_box_{variant}"))
+    sc = scenarios.make_stick_and_box(sim, variant)
     ik = IK(n)
 
     outdir = f"solutions/{sc.name}" + (f"_{tag}" if tag else "")
@@ -58,6 +59,7 @@ def main(iters, n, last_plot_only, camera, seed=0, n_elite=30, tag=None,
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
+    ap.add_argument("--variant", choices=["right", "between"], default="right")
     ap.add_argument("--iters", type=int, default=8)
     ap.add_argument("--n", type=int, default=512)
     ap.add_argument("--n-elite", type=int, default=30)
@@ -78,7 +80,7 @@ if __name__ == "__main__":
                     help="only plot the final iteration (skip per-iter convergence plots)")
     ap.add_argument("--camera", choices=["behind", "top", "gripper"], default="behind")
     args = ap.parse_args()
-    main(args.iters, args.n, args.last_plot_only, args.camera, seed=args.seed,
-         n_elite=args.n_elite, tag=args.tag, elite_temp=args.elite_temp,
+    main(args.iters, args.n, args.last_plot_only, args.camera, variant=args.variant,
+         seed=args.seed, n_elite=args.n_elite, tag=args.tag, elite_temp=args.elite_temp,
          smooth=args.smooth, n_modes=args.n_modes, explore=args.explore,
          robust_k=args.robust_k)

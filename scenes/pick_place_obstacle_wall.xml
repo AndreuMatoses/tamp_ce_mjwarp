@@ -2,7 +2,7 @@
   <!-- Pick/place-around-an-obstacle, WALL variant: a box wall between the tables forces
        the robot to drive the cube AROUND it. Same plan/regions as the ramp variant.
        Layout matches the old isaac-gym repo (tables at y=-1 / y=2.45, obstacle at y=2).
-       Collision geoms are primitives only (MJX mesh-collision constraint). -->
+       Collision geoms are primitives only. -->
   <compiler meshdir="../robot_models/dinova" angle="radian" autolimits="true"/>
   <include file="../robot_models/dinova/dinova_robot.xml"/>
 

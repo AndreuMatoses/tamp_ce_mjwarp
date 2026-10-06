@@ -5,7 +5,7 @@ ground box, place point_quat -> its 3D box) plus grasp/place approach arrows who
 direction is the gripper's approach axis and length encodes the yaw spin.
 
     uv run python examples/visualize_scenario.py pick_place_obstacle_wall
-    uv run python examples/visualize_scenario.py stick_and_box --camera top
+    uv run python examples/visualize_scenario.py stick_and_box_right --camera top
 
 Needs a display. --n-quat sets orientation samples per quaternion region.
 """
@@ -49,7 +49,7 @@ def main(scenario, n_quat, view):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("scenario", help="e.g. pick_place_obstacle_wall / stick_and_box")
+    ap.add_argument("scenario", help="e.g. pick_place_obstacle_wall / stick_and_box_right")
     ap.add_argument("--n-quat", type=int, default=64,
                     help="orientation samples per quaternion region (default 64)")
     ap.add_argument("--camera", choices=["behind", "top", "gripper"], default="behind")

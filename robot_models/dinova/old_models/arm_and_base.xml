@@ -1,8 +1,0 @@
-<mujoco model="arm_and_base">
-    
-    <worldbody>
-        <include file="clearpath/dingo_with_arm.xml"/>
-    </worldbody>
-    <include file="clearpath/attributes.xml"/>
-    <include file="kinova/attributes.xml"/>
-</mujoco>

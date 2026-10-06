@@ -18,6 +18,7 @@ import numpy as np
 import warp as wp
 
 from tamp_ce_mjwarp import actions as A
+from tamp_ce_mjwarp.log import log
 from tamp_ce_mjwarp.nav import NavBatch
 from tamp_ce_mjwarp.sim import _sec2steps
 
@@ -225,7 +226,12 @@ class Rollout:
 
 def replay(sim, ik, scenario, params):
     """Re-run a plan for one world with the given per-action parameter vectors, returning
-    the qpos trajectory (T, nq). Builds a fresh single-world Rollout (needs ik.n == 1)."""
+    the qpos trajectory (T, nq). Builds a fresh single-world Rollout (needs ik.n == 1).
+    GPU contact physics is not bit-wise deterministic, so a replay of a fragile plan can
+    end differently from the CE rollout that scored it; that case is logged."""
     ro = Rollout(sim, ik, scenario, 1, record_qpos=True)
-    ro.run([np.asarray(p, dtype=np.float32)[None] for p in params])
+    out = ro.run([np.asarray(p, dtype=np.float32)[None] for p in params])
+    if not out["ok"][0]:
+        log("WARNING: this replay did not reach the goal (GPU physics is not bit-wise "
+            "deterministic; replay again or pick a more robust plan)")
     return ro.traj.numpy()[:ro.steps_run, 0]

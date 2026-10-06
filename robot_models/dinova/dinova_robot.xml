@@ -1,10 +1,9 @@
 <mujoco model="dinova">
-  <!-- TidyBot-style Dinova model: Dingo (mecanum) base modeled as a holonomic
-       planar base (joint_x/y/th, position-controlled), Kinova Gen3 Lite 6-DOF
-       arm, a coupled 1-DOF gripper, and base + wrist cameras. Mirrors the
-       structure of models/stanford_tidybot/tidybot.xml so it can be driven by
-       the same policy pipeline. Meshes are referenced by subpath so the model
-       loads from the repo root. -->
+  <!-- Dinova model: Clearpath Dingo-O (mecanum) base modeled as a holonomic planar
+       base (joint_x/y/th, position-controlled), Kinova Gen3 Lite 6-DOF arm, a coupled
+       1-DOF gripper, and base + wrist cameras. Layout follows the stanford_tidybot model
+       of MuJoCo Menagerie. Meshes are referenced by subpath so the model loads from the
+       repo root. -->
   <compiler angle="radian" autolimits="true"/>
 
   <option integrator="implicitfast"/>
@@ -31,7 +30,7 @@
     </default>
     <!-- Rendered shells: the detailed STL meshes (group 2). contype/conaffinity 0 — the
          real robot collisions are the simplified primitives below (sim.py also disables all
-         mesh collision for fast MJX compile). -->
+         mesh collision). -->
     <default class="visual">
       <geom group="2" contype="0" conaffinity="0"/>
     </default>
@@ -46,7 +45,7 @@
   </default>
 
   <asset>
-    <!-- Arm material/texture (from kinova/attributes.xml) -->
+    <!-- Arm material/texture -->
     <texture name="body" type="cube" builtin="flat" mark="cross" width="127" height="1278"
       rgb1="0.9 0.9 0.9" rgb2="1 1 1" markrgb="0.8 0.8 0.8" random="0.01"/>
     <material name="body" texture="body" texuniform="true" rgba="0.8 0.8 0.8 1"/>
@@ -149,7 +148,7 @@
                       <!-- longer/wider pad centred on the grasp point so the whole face grips
                            the cube (not just the tip); quat pre-tilts the pad ~8deg about x so
                            it sits PARALLEL to the cube face at the grasp opening (the finger
-                           pivots, so an untilted pad contacts at an angle). See grasp_mjx.py. -->
+                           pivots, so an untilted pad contacts at an angle). -->
                       <geom class="pad" name="right_pad" pos="0 0.020 0.08" size="0.015 0.003 0.03"
                         quat="0.9936 -0.1132 0 0"/>
                     </body>

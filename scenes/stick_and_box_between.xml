@@ -1,0 +1,48 @@
+<mujoco model="stick_and_box_between">
+  <!-- Non-prehensile push scenario, BETWEEN variant: same stick, block and open box as the
+       RIGHT variant, but the box sits between the robot start and the stick (stick on the
+       robot's left). To topple the stick into the box the robot must route around the box
+       and push from the far side. Collision geoms are primitives only. -->
+  <compiler meshdir="../robot_models/dinova" angle="radian" autolimits="true"/>
+  <include file="../robot_models/dinova/dinova_robot.xml"/>
+
+  <statistic center="0 1.3 0.3" extent="2.6" meansize="0.05"/>
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.2 0.2 0.2" specular="0 0 0"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4"
+      rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 1 2.5" directional="true"/>
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- open box (no lid): floor plate + 4 thin walls, static, a stick-height from the stick
+         toward the robot start -->
+    <geom name="box_floor" type="box" pos="0 1.38 0.01"    size="0.14 0.14 0.01"  rgba="0.8 0.35 0.05 1"/>
+    <geom name="box_wb"    type="box" pos="0 1.238 0.13"   size="0.14 0.012 0.12" rgba="0.8 0.35 0.05 1"/>
+    <geom name="box_wf"    type="box" pos="0 1.522 0.13"   size="0.14 0.012 0.12" rgba="0.8 0.35 0.05 1"/>
+    <geom name="box_wl"    type="box" pos="0.142 1.38 0.13"  size="0.012 0.14 0.12" rgba="0.8 0.35 0.05 1"/>
+    <geom name="box_wr"    type="box" pos="-0.142 1.38 0.13" size="0.012 0.14 0.12" rgba="0.8 0.35 0.05 1"/>
+    <!-- goal marker (visual only): where the block should end up -->
+    <geom name="goal_marker" type="box" pos="0 1.38 0.05" size="0.06 0.06 0.05"
+          rgba="0 0.7 1 0.25" contype="0" conaffinity="0"/>
+
+    <!-- free-standing stick (topples when pushed) -->
+    <body name="stick" pos="0 2.0 0.30">
+      <freejoint name="stick_joint"/>
+      <geom name="stick_geom" type="box" size="0.035 0.035 0.30" rgba="0.74 0.6 0.04 1" mass="0.4"/>
+    </body>
+
+    <!-- block balanced on top of the stick -->
+    <body name="block" pos="0 2.0 0.625">
+      <freejoint name="block_joint"/>
+      <geom name="block_geom" type="box" size="0.025 0.025 0.025" rgba="0.85 0.15 0.15 1" mass="0.05"/>
+    </body>
+  </worldbody>
+</mujoco>

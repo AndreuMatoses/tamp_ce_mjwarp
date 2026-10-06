@@ -96,9 +96,9 @@ class Sim:
             m.geom_contype[free] = OBST | FLOOR
             m.geom_conaffinity[free] = OBST | FLOOR
 
-        # NB: no gravity compensation. The MJX repo patched body_gravcomp=1 post-compile,
-        # but that was a no-op (gated on compile-time ngravcomp==0); MJWarp would actually
-        # apply it — including to free objects, which then float instead of falling.
+        # NB: no gravity compensation. A post-compile body_gravcomp=1 patch is a no-op in
+        # MuJoCo/MJX (gated on compile-time ngravcomp==0), but MJWarp actually applies it —
+        # including to free objects, which then float instead of falling.
 
         self.model = mjw.put_model(m)
         self.dt = float(m.opt.timestep)

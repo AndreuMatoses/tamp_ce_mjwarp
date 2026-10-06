@@ -1,10 +1,9 @@
 <mujoco model="dinova_fullbody_ik">
   <!-- Holonomic planar base (joint_x/y/th) + Kinova Gen3 Lite arm, used by the WHOLE-BODY
-       IK solver. Deliberately MINIMAL (like dinova_arm_ik.xml): no gripper fingers, no
-       coupled-finger equality, no cameras/chassis collision — only the kinematic chain and
-       the pinch_site. The extra structure of the full dinova_robot.xml (equality constraint
-       etc.) makes the fused MJX+IK rollout miscompile on the XLA-GPU backend. FK here matches
-       the real robot (same base joints + arm mount 0.160 0 0.11 + pinch offset). -->
+       IK solver. Deliberately MINIMAL: no gripper fingers, no coupled-finger equality, no
+       cameras/chassis collision — only the kinematic chain and the pinch_site, so the
+       batched IK kinematics stay cheap. FK here matches the full dinova_robot.xml (same base
+       joints + arm mount 0.160 0 0.11 + pinch offset). -->
   <compiler angle="radian" autolimits="true"/>
 
   <default>
