@@ -92,6 +92,13 @@ uv run python examples/pick_place_obstacle.py --variant ramp --iters 14 --n 6144
     --n-elite 51 --elite-temp 2 --n-modes 3 --explore 0.15 --robust-k 16
 ```
 
+<img src="docs/media/ce_ramp_phantoms.gif" width="600">
+
+*24 sampled plans of one such run, shown as ghosts (4x speed), at CE iterations 0 (uniform
+samples), 2 and 14. The samples come from the distribution of the cluster that holds the
+best plan. At iteration 2, that cluster drives around the ramp. At iteration 14, it
+releases the cube on the ramp, and the cube slides onto table 2.*
+
 With these options, the result still changes from run to run. The slide won in 2 of 2
 final runs of `notes/ramp_mode_tuning.md`, and in 1 of 2 of our later re-runs. The other
 re-run drove around the ramp. The cost advantage of the slide also changes: 2494 against
